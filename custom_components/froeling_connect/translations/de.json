@@ -1,0 +1,29 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Fröling Connect",
+        "description": "Melde dich mit deinem Fröling-Connect-Konto an (dasselbe wie unter connect-web.froeling.com).",
+        "data": {
+          "username": "E-Mail",
+          "password": "Passwort"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Fröling Connect erneut anmelden",
+        "description": "Die Anmeldung für {username} ist abgelaufen. Bitte gib dein Passwort erneut ein.",
+        "data": {
+          "password": "Passwort"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "E-Mail oder Passwort ungültig.",
+      "unknown": "Unerwarteter Fehler."
+    },
+    "abort": {
+      "already_configured": "Dieses Fröling-Connect-Konto ist bereits eingerichtet.",
+      "reauth_successful": "Erneute Authentifizierung erfolgreich."
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Fröling Connect",
+        "description": "Log in with your Fröling Connect account (the same you use at connect-web.froeling.com).",
+        "data": {
+          "username": "Email",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate Fröling Connect",
+        "description": "Your Fröling Connect session for {username} expired. Please re-enter your password.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid email or password.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This Fröling Connect account is already configured.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  }
+}
