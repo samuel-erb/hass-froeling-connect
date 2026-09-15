@@ -208,6 +208,8 @@ class FroelingConnectClient:
             return await res.json()
 
     async def get_facilities(self) -> list[FacilityInfo]:
+        if not self._token:
+            await self.login()
         listing = await self._request(USER_FACILITY_URL.format(user_id=self.user_id))
         return [
             FacilityInfo(
