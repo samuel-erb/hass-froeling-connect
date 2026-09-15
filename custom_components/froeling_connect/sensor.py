@@ -17,8 +17,10 @@ UNIT_MAP: dict[str, tuple[SensorDeviceClass | None, str]] = {
     "°C": (SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
     "°F": (SensorDeviceClass.TEMPERATURE, UnitOfTemperature.FAHRENHEIT),
     "h": (SensorDeviceClass.DURATION, UnitOfTime.HOURS),
-    "t": (SensorDeviceClass.WEIGHT, UnitOfMass.METRIC_TONS),
     "kg": (SensorDeviceClass.WEIGHT, UnitOfMass.KILOGRAMS),
+    # "t" (metric tons, e.g. pellet storage fill level) is intentionally not
+    # mapped: HA's UnitOfMass does not reliably expose a tons member across
+    # versions. It's still shown fine as a plain, device-class-less unit.
 }
 
 
