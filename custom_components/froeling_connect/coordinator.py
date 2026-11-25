@@ -14,8 +14,19 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import FacilityInfo, FroelingApiError, FroelingAuthError, FroelingConnectClient, Param
-from .const import DEFAULT_UPDATE_INTERVAL_SECONDS, DOMAIN, LOGGER
+from .api import (
+    ComponentInfo,
+    FacilityInfo,
+    FroelingApiError,
+    FroelingAuthError,
+    FroelingConnectClient,
+    Param,
+    detect_version_from_components,
+    format_version,
+    nxg_value_types_for,
+    parse_version,
+)
+from .const import DEFAULT_UPDATE_INTERVAL_SECONDS, DOMAIN, FACILITY_GENERATION_NXG, LOGGER
 
 type FroelingConnectConfigEntry = ConfigEntry[FroelingConnectDataUpdateCoordinator]
 
@@ -48,6 +59,8 @@ class FroelingConnectDataUpdateCoordinator(DataUpdateCoordinator[FroelingConnect
         self.facilities: dict[int, FacilityInfo] = {}
         self.component_device_info: dict[tuple[int, str], DeviceInfo] = {}
         self.component_names: dict[tuple[int, str], str] = {}
+        # Controller software version per facility (NXG only), e.g. "v1.2.1".
+        self.software_versions: dict[int, str | None] = {}
 
     async def _async_update_data(self) -> FroelingConnectData:
         try:
@@ -62,24 +75,48 @@ class FroelingConnectDataUpdateCoordinator(DataUpdateCoordinator[FroelingConnect
 
         for facility in facilities:
             self.facilities[facility.facility_id] = facility
-            self._register_facility_device(device_registry, facility)
 
-            for param in self.client.get_facility_info_params(facility):
-                params[(facility.facility_id, param.component_id, param.param_id)] = param
-            self.component_device_info[(facility.facility_id, "facility_info")] = self._facility_device_info(facility)
-            self.component_names[(facility.facility_id, "facility_info")] = "Anlageninfo"
+            status_params: list[Param] = []
+            software_version: str | None = None
+            if facility.generation == FACILITY_GENERATION_NXG:
+                try:
+                    status = await self.client.get_nxg_facility_status(facility)
+                except FroelingAuthError as err:
+                    raise ConfigEntryAuthFailed from err
+                except FroelingApiError as err:
+                    LOGGER.debug("Facility info for %s unavailable: %s", facility.facility_id, err)
+                else:
+                    status_params = status.params
+                    software_version = status.software_version
 
             try:
                 components = await self.client.get_components(facility)
             except FroelingApiError as err:
                 raise UpdateFailed(str(err)) from err
 
+            value_types: frozenset[str] | None = None
+            if facility.generation == FACILITY_GENERATION_NXG:
+                version = parse_version(software_version) or detect_version_from_components(components)
+                software_version = format_version(version)
+                value_types = nxg_value_types_for(version)
+                if self.software_versions.get(facility.facility_id) != software_version:
+                    LOGGER.info(
+                        "Facility %s runs controller software %s", facility.facility_id, software_version or "unknown"
+                    )
+            self.software_versions[facility.facility_id] = software_version
+            self._register_facility_device(device_registry, facility)
+
+            for param in [*self.client.get_facility_info_params(facility, value_types), *status_params]:
+                params[(facility.facility_id, param.component_id, param.param_id)] = param
+            self.component_device_info[(facility.facility_id, "facility_info")] = self._facility_device_info(facility)
+            self.component_names[(facility.facility_id, "facility_info")] = "Anlageninfo"
+
             for component in components:
                 key = (facility.facility_id, component.component_id)
                 self.component_device_info[key] = self._component_device_info(facility, component)
                 self.component_names[key] = component.name
                 try:
-                    component_params = await self.client.get_component_params(facility, component)
+                    component_params = await self.client.get_component_params(facility, component, value_types)
                 except FroelingApiError:
                     LOGGER.exception("Failed to fetch parameters for component %s", component.component_id)
                     continue
@@ -95,6 +132,7 @@ class FroelingConnectDataUpdateCoordinator(DataUpdateCoordinator[FroelingConnect
             name=facility.name,
             manufacturer="Fröling",
             model=facility.generation,
+            sw_version=self.software_versions.get(facility.facility_id),
         )
 
     def _facility_device_info(self, facility: FacilityInfo) -> DeviceInfo:
@@ -103,13 +141,15 @@ class FroelingConnectDataUpdateCoordinator(DataUpdateCoordinator[FroelingConnect
             name=facility.name,
             manufacturer="Fröling",
             model=facility.generation,
+            sw_version=self.software_versions.get(facility.facility_id),
         )
 
-    def _component_device_info(self, facility: FacilityInfo, component) -> DeviceInfo:  # noqa: ANN001
+    def _component_device_info(self, facility: FacilityInfo, component: ComponentInfo) -> DeviceInfo:
         return DeviceInfo(
             identifiers={(DOMAIN, f"component_{facility.facility_id}_{component.component_id}")},
             name=component.name,
             manufacturer="Fröling",
             model=component.model,
+            sw_version=self.software_versions.get(facility.facility_id),
             via_device=(DOMAIN, f"facility_{facility.facility_id}"),
         )

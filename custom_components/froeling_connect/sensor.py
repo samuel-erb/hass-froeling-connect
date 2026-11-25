@@ -34,7 +34,7 @@ async def async_setup_entry(
     entities = [
         FroelingConnectSensor(coordinator, key)
         for key, param in coordinator.data.params.items()
-        if param.kind in ("numeric", "enum", "text")
+        if param.kind in ("numeric", "enum", "text", "timestamp", "schedule")
     ]
     async_add_entities(entities)
 
@@ -67,6 +67,8 @@ class FroelingConnectSensor(CoordinatorEntity[FroelingConnectDataUpdateCoordinat
             self._attr_device_class = SensorDeviceClass.ENUM
             if param.options:
                 self._attr_options = list(param.options.values())
+        elif param.kind == "timestamp":
+            self._attr_device_class = SensorDeviceClass.TIMESTAMP
 
         self._update_value()
 
@@ -81,6 +83,7 @@ class FroelingConnectSensor(CoordinatorEntity[FroelingConnectDataUpdateCoordinat
             self._attr_available = False
             return
         self._attr_available = True
+        self._attr_extra_state_attributes = param.attributes
         if param.kind == "enum" and param.options:
             self._attr_native_value = param.options.get(param.value, param.value)
         else:

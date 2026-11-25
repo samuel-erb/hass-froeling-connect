@@ -71,6 +71,31 @@ per Netzwerk-Mitschnitt aus `connect-web.froeling.com` ermittelt:
 | Komponente (GEN_3200) | `GET /fcs/v1.0/resources/user/{userId}/facility/{facilityId}/component/{componentId}` |
 | Komponentenliste (GEN_NXG) | `GET /fcs/v1.0/resources/user/{userId}/nxg/facility/{facilityId}/web/overview` |
 | Komponente (GEN_NXG) | `GET /fcs/v1.0/resources/user/{userId}/nxg/facility/{facilityId}/web/component/{componentId}` |
+| Anlageninfo inkl. Software-Version (GEN_NXG) | `GET /fcs/v1.0/resources/user/{userId}/nxg/facility/{facilityId}/info` |
+
+### Software-Version der Steuerung (GEN_NXG)
+
+Welche Werte-Typen die API liefert, hängt von der Software-Version der
+Kesselsteuerung ab. Die Integration fragt die Version bei jedem Update über
+den Info-Endpoint ab (`softwareVersion`, z. B. `v1.2.1`; Fallback:
+`version=` im `svgUrl` bzw. `usedTemplateVersion` der Komponenten) und liest
+dann die für diese Version bekannten Typen (`NXG_VERSION_PROFILES` in
+`const.py`). Die Version erscheint als Firmware-Version an den Geräten und
+als Sensor „Software Version" in der Anlageninfo.
+
+| Version | Werte-Typen |
+|---|---|
+| v1.1.x | `NumberValue`, `IntValue`, `BooleanValue`, `TextValue`, `StringListValue`, `StringValue`, `PointOfTimeValue` |
+| v1.2.x | zusätzlich `TimestampValue` (z. B. Startzeitpunkt Zünden), `TimeScheduleValue` (Zeitfenster) |
+
+Unbekannte, neuere Versionen werden wie die neueste bekannte gelesen (mit
+Warnung im Log).
+
+Entities werden über den Parameter-`name` identifiziert, nicht mehr über die
+UUID der API: Beim Update v1.1.1 → v1.2.1 haben sich viele UUIDs geändert,
+was doppelte Entities (`…_2`) erzeugt hat. Beim Start werden bestehende
+Entities automatisch auf die neuen IDs migriert und solche Duplikate entfernt
+(die ältere Entity mit Verlauf bleibt erhalten).
 
 Es gibt **keine** externe PyPI-Abhängigkeit – die Integration nutzt nur
 `aiohttp`, das ohnehin Teil von Home Assistant ist. (Der PyPI-Paketname
